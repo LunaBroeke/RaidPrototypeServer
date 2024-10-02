@@ -32,7 +32,7 @@ namespace RaidPrototypeServer
                     serverActive = true;
                     logger.Log($"Listening on {localEP}");
                     logger.Log("Server Started. waiting for connections");
-                    while (true)
+                    while (serverActive)
                     {
                         TcpClient client = server.AcceptTcpClient();
                         IPEndPoint endPoint = client.Client.RemoteEndPoint as IPEndPoint;
@@ -151,8 +151,16 @@ namespace RaidPrototypeServer
         {
             Command command = JsonConvert.DeserializeObject<Command>(s);
             if (command.command == "Disconnect") Disconnect(player);
+            if (command.command == "PONG") GetPing(player, command);
         }
         #endregion
+        private static void GetPing(ServerPlayer player, Command c)
+        {
+            DateTime t1 = DateTime.Parse(c.arguments[0]);
+            DateTime t2 = DateTime.Parse(c.arguments[1]);
+            TimeSpan ping = t2 - t1;
+            player.logger.Log($"Ping: {ping.TotalMilliseconds} ms");
+        }
         public static int AssignPuppetID()
         {
             int id;

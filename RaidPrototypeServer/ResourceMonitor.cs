@@ -25,7 +25,9 @@ namespace RaidPrototypeServer
                 int threadCount = currentProcess.Threads.Count;
                 s += $"Thread Count:{threadCount}\r\n";
                 int clientCount = Server.players.Count;
-                s += $"Connected Clients: {clientCount}";
+                s += $"Connected Clients: {clientCount}\r\n";
+                bool pending = MainWindow.server.serverActive;
+                s += $"Pending Connections: {pending}\r\n";
                 ApplyInfo(s);
                 Thread.Sleep(500);
             }

@@ -60,6 +60,7 @@
             ConsoleInput.Name = "ConsoleInput";
             ConsoleInput.Size = new Size(685, 27);
             ConsoleInput.TabIndex = 1;
+            ConsoleInput.KeyDown += ConsoleInput_KeyDown;
             // 
             // resources
             // 
