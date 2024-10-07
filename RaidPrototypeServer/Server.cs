@@ -32,6 +32,7 @@ namespace RaidPrototypeServer
                     serverActive = true;
                     logger.Log($"Listening on {localEP}");
                     logger.Log("Server Started. waiting for connections");
+                    AccountManager.GetAccountDatabase();
                     while (serverActive)
                     {
                         TcpClient client = server.AcceptTcpClient();
@@ -45,7 +46,7 @@ namespace RaidPrototypeServer
                 }
                 catch (Exception e)
                 {
-                    logger.LogError($"General Error: {e.Message}");
+                    logger.LogError($"General Error: {e}");
                 }
                 finally
                 {
@@ -63,6 +64,8 @@ namespace RaidPrototypeServer
             PlayerInfo pi = null;
             try
             {
+                AccountManager.AwaitAccount(player);
+                player.logger.Log("2");
                 byte[] buffer = new byte[1024];
                 int bytesRead = stream.Read(buffer, 0, buffer.Length);
                 if (bytesRead == 0) { throw new Exception("No bytes read"); }

@@ -12,6 +12,7 @@ namespace RaidPrototypeServer
     {
         public static void ProcessCommand(string m)
         {
+            m = m.ToLower();
             Logger logger = Server.logger;
             string[] data = m.Split(new char[] { ' ' });
             foreach (string s in data)
