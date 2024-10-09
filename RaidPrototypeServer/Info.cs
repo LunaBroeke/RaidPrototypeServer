@@ -13,7 +13,7 @@ namespace RaidPrototypeServer
         public string name { get; set; }
         public Position position { get; set; } = new();
         public Rotation rotation { get; set; } = new();
-        public PlayerStats playerStats { get; set; } = new();
+        public Stats playerStats { get; set; } = new();
     }
     public class Position
     {
@@ -30,18 +30,37 @@ namespace RaidPrototypeServer
         public float w { get; set; }
 
     }
-    public class PlayerStats
+    public class Stats
     {
-        public float attack { get; set; }
-        public float defense { get; set; }
+        public int maxHealth { get; set; }
+        public int attack { get; set; }
+        public int defense { get; set; }
     }
     public class ServerPlayer
     {
         public string type { get; private set; } = "ServerPlayer";
+        public string name { get; set; }
         public PlayerInfo player { get; set; }
         public TcpClient tcpClient { get; set; }
         public Logger logger { get; set; }
         public Thread thread { get; set; }
+        public UserClient userType { get; set; }
+    }
+    public enum UserClient
+    {
+        None = 0,
+        Player,
+        Spectator,
+        AdminPanel,
+    }
+    public class EnemyInfo
+    {
+        public string type { get; set; } = "EnemyInfo";
+        public int puppetID { get; set; }
+        public string name { get; set; }
+        public Position position { get; set; } = new();
+        public Rotation rotation { get; set; } = new();
+        public Stats enemyStats { get; set; } = new();
     }
     public class Command
     {

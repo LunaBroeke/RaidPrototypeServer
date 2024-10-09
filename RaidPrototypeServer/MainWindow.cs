@@ -13,7 +13,7 @@ namespace RaidPrototypeServer
 {
     public partial class MainWindow : Form
     {
-        public static Server server = new Server() { maxPlayers = 4, port = 2051 };
+        public static Server server = new Server();
         public MainWindow()
         {
             InitializeComponent();
@@ -66,7 +66,7 @@ namespace RaidPrototypeServer
             if (e.KeyCode == Keys.Enter)
             {
                 e.SuppressKeyPress = true;
-                string m = ConsoleInput.Text.ToLower();
+                string m = ConsoleInput.Text;
                 new Thread(() => { ConsoleCommandHandler.ProcessCommand(m); }).Start();
                 ConsoleInput.Clear();
             }

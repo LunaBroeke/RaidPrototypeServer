@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -11,20 +12,20 @@ namespace RaidPrototypeServer
 {
     public class Server
     {
-        public int maxPlayers = 4;
-        public int port = 2051;
         public static TcpListener server;
         public static List<ServerPlayer> players = new List<ServerPlayer>();
         public static ServerInfo serverInfo = new ServerInfo();
         public static Logger logger = new Logger() { name = "Server" };
         public static IPEndPoint localEP = null;
         public bool serverActive;
+        public static Settings settings = Settings.LoadSettings();
 
         public void StartServer()
         {
             if (serverActive == false)
             {
-                localEP = new IPEndPoint(IPAddress.Any, port);
+                localEP = new IPEndPoint(IPAddress.Parse(settings.address), settings.port);
+                
                 try
                 {
                     server = new TcpListener(localEP);
@@ -64,12 +65,31 @@ namespace RaidPrototypeServer
             PlayerInfo pi = null;
             try
             {
+                player.name = endPoint.ToString();
+                players.Add(player);
+                PlayerListMonitor.WritePlayerList();
                 AccountManager.AwaitAccount(player);
-                player.logger.Log("2");
-                byte[] buffer = new byte[1024];
-                int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                if (bytesRead == 0) { throw new Exception("No bytes read"); }
-                s = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            }
+            catch (Exception ex)
+            {
+#if DEBUG
+                player.logger.LogError(ex.ToString());
+#elif RELEASE
+                player.logger.LogError(ex.Message);
+#endif
+                Disconnect(player);
+            }
+        }
+        public static void HandlePlayer(ServerPlayer player)
+        {
+            player.thread = Thread.CurrentThread;
+            NetworkStream stream = player.tcpClient.GetStream();
+            IPEndPoint endPoint = player.tcpClient.Client.RemoteEndPoint as IPEndPoint;
+            string s = null;
+            PlayerInfo pi = null;
+            try
+            {
+                s = PacketHandler.ReadStream(stream, 1024);
                 player.logger.Log($"{s}");
                 pi = JsonConvert.DeserializeObject<PlayerInfo>(s);
                 if (!ValidatePacket(pi)) throw new Exception("PlayerInfo is missing");
@@ -78,9 +98,7 @@ namespace RaidPrototypeServer
                 player.player.puppetID = AssignPuppetID();
                 player.logger.name = $"{player.player.name}({player.player.puppetID})";
                 player.logger.Log($"Obtained name {player.player.name} from {endPoint} and assigned ID {player.player.puppetID}");
-                players.Add(player);
-                byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(player.player));
-                stream.Write(data, 0, data.Length);
+                PacketHandler.WriteStream(stream, player.player);
             }
             catch (Exception ex)
             {
@@ -97,10 +115,7 @@ namespace RaidPrototypeServer
                 {
                     PlayerListMonitor.WritePlayerList();
                     s = null;
-                    byte[] buffer = new byte[1024];
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    if (bytesRead == 0) { throw new Exception("No bytes read"); }
-                    s = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    s = PacketHandler.ReadStream(stream, 1024);
                     player.logger.Log(s);
                     string check = ValidatePacket(s);
                     switch (check)
@@ -126,8 +141,16 @@ namespace RaidPrototypeServer
                 Disconnect(player);
             }
         }
+        public static void HandleSpectator(ServerPlayer player)
+        {
+
+        }
+        public static void HandleAdminPanel(ServerPlayer player)
+        {
+
+        }
         #region Packet Validating
-        public bool ValidatePacket(PlayerInfo pi)
+        public static bool ValidatePacket(PlayerInfo pi)
         {
             if (pi.type != "PlayerInfo") return false;
             if (pi == null) return false;
@@ -135,14 +158,14 @@ namespace RaidPrototypeServer
             return true;
         }
 
-        public bool ValidatePacket(Command c)
+        public static bool ValidatePacket(Command c)
         {
             if (c.type != "Command") return false;
             if (c.command == null) return false;
             return true;
         }
 
-        public string ValidatePacket(string s)
+        public static string ValidatePacket(string s)
         {
             if (ValidatePacket(JsonConvert.DeserializeObject<PlayerInfo>(s))) return "PlayerInfo";
             if (ValidatePacket(JsonConvert.DeserializeObject<Command>(s))) return "Command";
@@ -150,7 +173,7 @@ namespace RaidPrototypeServer
         }
         #endregion
         #region Packet Handling
-        public void HandleClientCommand(ServerPlayer player , string s)
+        public static void HandleClientCommand(ServerPlayer player , string s)
         {
             Command command = JsonConvert.DeserializeObject<Command>(s);
             if (command.command == "Disconnect") Disconnect(player);
@@ -177,7 +200,7 @@ namespace RaidPrototypeServer
             return null;
         }
 
-        public void Disconnect(ServerPlayer player)
+        public static void Disconnect(ServerPlayer player)
         {
             players.Remove(player);
             player.logger.LogError($"{player.tcpClient.Client.RemoteEndPoint} Disconnected");

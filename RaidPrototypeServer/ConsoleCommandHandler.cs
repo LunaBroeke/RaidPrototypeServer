@@ -12,7 +12,6 @@ namespace RaidPrototypeServer
     {
         public static void ProcessCommand(string m)
         {
-            m = m.ToLower();
             Logger logger = Server.logger;
             string[] data = m.Split(new char[] { ' ' });
             foreach (string s in data)
@@ -26,6 +25,9 @@ namespace RaidPrototypeServer
                     break;
                 case "ping":
                     SendPing();
+                    break;
+                case "ban":
+                    CommandBan(data);
                     break;
                 case "start":
                     Thread serverThread = new Thread(MainWindow.server.StartServer) { IsBackground = true };
@@ -61,18 +63,32 @@ namespace RaidPrototypeServer
             }
             catch (IndexOutOfRangeException) { logger.LogWarning("Missing arguments"); }
         }
+        private static void CommandBan(string[] data)
+        {
+            Logger logger = Server.logger;
+            Settings settings = Server.settings;
+            string name = data[1];
+            string time = string.Join(" ", data.Skip(2));
+            try
+            {
+                DateTime t = DateTime.Parse(time);
+                Account acc = AccountManager.FindAccountByName(name);
+                acc.banExpire = t;
+                AccountManager.WriteAccountDatabase();
+            }
+            catch (InvalidAccountException e) {logger.LogWarning(e.Message); return; }
+            catch (Exception e) { logger.LogWarning(e.ToString()); return; }
+        }
 
         private static void SendPing()
         {
             Command c = new Command();
             c.command = "PING";
             c.arguments = new[] { DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), "await" };
-            string m = JsonConvert.SerializeObject(c);
             foreach (ServerPlayer player in Server.players)
             {
                 NetworkStream stream = player.tcpClient.GetStream();
-                byte[] data = Encoding.UTF8.GetBytes(m);
-                stream.Write(data, 0, data.Length);
+                PacketHandler.WriteStream(stream, c);
             }
         }
     }

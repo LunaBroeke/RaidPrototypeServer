@@ -8,6 +8,7 @@ using System.IO;
 using Newtonsoft.Json;
 using Microsoft.VisualBasic.Devices;
 using System.Net.Sockets;
+using System.Web;
 
 namespace RaidPrototypeServer
 {
@@ -22,6 +23,11 @@ namespace RaidPrototypeServer
         public string salt;
         public string typeToken = "User";
         public bool accepted;
+        public DateTime banExpire = DateTime.UnixEpoch;
+    }
+    public class LoginResult
+    {
+
     }
     public class AccountManager
     {
@@ -41,17 +47,19 @@ namespace RaidPrototypeServer
                 logger.LogWarning($"File {path} not found, creating new file");
                 accounts = new List<Account>
                 {
-                    RegisterAccount("admin", "admin")
+                    RegisterAccount("admin", "admin"),
+                    RegisterAccount("null", "null")
                 };
-                accounts.First().typeToken = "admin";
+                accounts[0].typeToken = "admin";
+                accounts[1].typeToken = "null";
                 WriteAccountDatabase();
             }
         }
 
-        private static void WriteAccountDatabase()
+        public static void WriteAccountDatabase()
         {
             Root root = new Root() { accounts = accounts };
-            string json = JsonConvert.SerializeObject(root);
+            string json = JsonConvert.SerializeObject(root,Formatting.Indented);
             File.WriteAllText(path, json);
             logger.Log($"Saved {path}");
         }
@@ -61,8 +69,7 @@ namespace RaidPrototypeServer
             Command c = new Command() { command = "PleaseLogin" };
             string s = JsonConvert.SerializeObject(c);
             NetworkStream stream = user.tcpClient.GetStream();
-            byte[] data = Encoding.UTF8.GetBytes(s);
-            stream.Write(data, 0, data.Length);
+            PacketHandler.WriteStream(stream, c);
             bool success = false;
             Account account = null;
             do
@@ -71,46 +78,66 @@ namespace RaidPrototypeServer
                 {
                     c = null;
                     s = null;
-                    data = new byte[512];
-                    int bytesRead = stream.Read(data, 0, data.Length);
-                    if (bytesRead != 0)
+                    s = PacketHandler.ReadStream(stream, 1024);
+                    user.logger.LogWarning(s);
+                    c = JsonConvert.DeserializeObject<Command>(s);
+                    try { if (c.arguments.Length < 3) { LoginFail(stream, $"Invalid Arguments, Disconnecting"); Server.Disconnect(user); return; } } catch { Server.Disconnect(user); }
+                    switch (c.command)
                     {
-                        s = Encoding.UTF8.GetString(data);
-                        user.logger.LogWarning(s);
-                        c = JsonConvert.DeserializeObject<Command>(s);
-                        switch (c.command)
-                        {
-                            case "login":
-                                (bool b, account) = Login(c.arguments[0], c.arguments[1]);
-                                if (b)
-                                {
-                                    user.logger.Log($"{account.name} Logged in successfully!");
-                                    success = true;
-                                }
-                                else
-                                {
-                                    user.logger.LogWarning("Login failed");
-                                }
-                                break;
-                            case "register":
-                                account = RegisterAccount(c.arguments[0], c.arguments[1]);
-                                if (account.accepted)
-                                {
-                                    accounts.Add(account);
-                                    user.logger.Log($"Account {account.name} Registered!");
-                                    success = true;
-                                }
-                                break;
-                            default:
-                                throw new InvalidDataException($"Command {c.command} unexpected");
-                        }
+                        case "login":
+                            (bool b, account) = Login(c.arguments[0], c.arguments[1]);
+                            if (b)
+                            {
+                                success = LoginHandler(user,stream,account,c);
+                                continue;
+                            }
+                            else
+                            {
+                                user.logger.LogWarning("Login failed");
+                                LoginFail(stream, "Incorrect username or password");
+                                continue;
+                            }
+                        case "register":
+                            account = RegisterAccount(c.arguments[0], c.arguments[1]);
+                            if (account.accepted)
+                            {
+                                accounts.Add(account);
+                                user.logger.Log($"Account {account.name} Registered!");
+                                success = true;
+                            }
+                            else
+                            {
+                                LoginFail(stream, account.typeToken);
+                            }
+                            break;
+                        case "Disconnect":
+                            Server.Disconnect(user);
+                            break;
+                        default:
+                            throw new InvalidDataException($"Command {c.command} unexpected");
                     }
+
                 }
                 catch (Exception e) { user.logger.LogError(e.ToString()); success = false; continue; }
             }
             while (!success);
-            c = new Command() { command = "LoginSuccess", arguments = new string[] { account.name } };
+            user.logger.Log(user.userType.ToString());
+            c = new Command() { command = "LoginSuccess", arguments = new string[] { account.name, account.typeToken } };
+            user.name = account.name;
+            PacketHandler.WriteStream(stream, c);
             WriteAccountDatabase();
+            switch (user.userType)
+            {
+                case UserClient.Player:
+                    Server.HandlePlayer(user);
+                    break;
+                case UserClient.Spectator:
+                    Server.HandleSpectator(user);
+                    break;
+                case UserClient.AdminPanel:
+                    Server.HandleAdminPanel(user);
+                    break;
+            }
         }
         public static Account RegisterAccount(string name, string password)
         {
@@ -125,12 +152,13 @@ namespace RaidPrototypeServer
                 }
                 string salt = Convert.ToBase64String(saltBytes);
                 account.salt = salt;
-                account.passwordHash = GetPassword(password,saltBytes);
+                account.passwordHash = GetPassword(password, saltBytes);
                 account.accepted = true;
             }
             else
             {
                 account.accepted = false;
+                account.typeToken = "Name has been taken already, please register with a new name";
             }
             return account;
         }
@@ -145,9 +173,9 @@ namespace RaidPrototypeServer
                 return Convert.ToBase64String(hashBytes);
             }
         }
-        public static (bool,Account) Login(string name, string password)
+        public static (bool, Account) Login(string name, string password)
         {
-            Account account = new Account();
+            Account account = null;
             foreach (Account acc in accounts)
             {
                 if (acc.name == name) { account = acc; break; }
@@ -155,31 +183,104 @@ namespace RaidPrototypeServer
             if (account != null)
             {
                 byte[] saltBytes = Convert.FromBase64String(account.salt);
-                string passHash = GetPassword(password,saltBytes);
+                string passHash = GetPassword(password, saltBytes);
                 logger.LogWarning(passHash);
                 if (account.passwordHash == passHash)
                 {
                     logger.Log($"User {name} Logged in successfully");
-                    return(true,account);
+                    return (true, account);
                 }
                 else
                 {
-                    return(false,null);
+                    return (false, null);
                 }
             }
             else
             {
-                return(false,null);
+                return (false, null);
             }
+        }
+        private static bool LoginHandler(ServerPlayer user, NetworkStream stream, Account account, Command c)
+        {
+            user.logger.Log($"{account.name} Logged in successfully!");
+            if (account.typeToken == "null")
+            {
+                LoginFail(stream, "Incorrect username or password");
+                return false;
+            }
+            logger.Log(isBanned(account).ToString());
+            if (isBanned(account))
+            {
+                LoginFail(stream, $"Logged in successfully, but you are banned until {account.banExpire}");
+                return false;
+            }
+            else
+            {
+                account.banExpire = DateTime.UnixEpoch;
+            }
+            user.userType = Settings.CanLogin(account, c);
+            if (user.userType == UserClient.None)
+            {
+                LoginFail(stream, $"This account is not compatible with this software");
+                return false;
+            }
+            return true;
+        }
+        public static Account FindAccountByName(string s)
+        {
+            foreach(Account acc in accounts)
+            {
+                if (acc.name == s) return acc;
+            }
+            throw new InvalidAccountException($"Account Name not found");
         }
         private static bool NameTaken(string m)
         {
-            if (accounts == null ) return false;
+            if (accounts == null) return false;
             foreach (Account a in accounts)
             {
                 if (a.name == m) return true;
             }
             return false;
         }
+
+        private static void LoginFail(NetworkStream stream, string msg)
+        {
+            Command c = new Command() { command = "LoginFailed", arguments = new string[] { msg } };
+            PacketHandler.WriteStream(stream, c);
+            c = new Command() { command = "PleaseLogin" };
+            PacketHandler.WriteStream(stream, c);
+        }
+        private static bool isBanned(Account account)
+        {
+            if (account.banExpire != null)
+            {
+                DateTime now = DateTime.Now;
+                DateTime ban = account.banExpire;
+                TimeSpan span = ban - now;
+                logger.LogWarning(span.ToString());
+                if (span > TimeSpan.Zero)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                return false;
+            }
+            return false;
+        }
+        private static void TokenCheck()
+        {
+
+        }
+    }
+
+    public class InvalidAccountException : Exception
+    {
+        public InvalidAccountException() : base("Invalid Account"){ }
+        public InvalidAccountException(string message) : base(message) { }
+        public InvalidAccountException(string message, Exception innerException) : base(message, innerException) { }
+        
     }
 }

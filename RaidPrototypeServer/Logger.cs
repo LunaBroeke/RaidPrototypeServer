@@ -45,7 +45,7 @@ namespace RaidPrototypeServer
                 }
 
                 // Set up the log message
-                string logEntry = $"[{DateTime.Now.ToString("HH:mm:ss")}] [{logType}][{name}] {message}\r\n";
+                string logEntry = $"[{DateTime.Now.ToString("HH:mm:ss")}] [{logType}][{name}] {message}{Environment.NewLine}";
 
                 // Append log to the console
                 main.ConsoleBox.AppendText(logEntry);

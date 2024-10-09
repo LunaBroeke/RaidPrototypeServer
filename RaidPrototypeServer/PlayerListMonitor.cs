@@ -28,13 +28,16 @@ namespace RaidPrototypeServer
                 {
                     string a = null;
                     i++;
-                    string name = null;
+                    string name = player.name;
                     int id = -1;
                     IPEndPoint endpoint = (IPEndPoint)player.tcpClient.Client.RemoteEndPoint;
-                    if (player.player.name == null) name = endpoint.ToString();
-                    else name = player.player.name;
-                    if (player.player.puppetID == -1) id = endpoint.Port;
-                    else id = player.player.puppetID;
+                    if (player.player != null)
+                    {
+                        if (player.player.name == null) name = endpoint.ToString();
+                        else name = player.player.name;
+                        if (player.player.puppetID == -1) id = endpoint.Port;
+                        else id = player.player.puppetID;
+                    }
                     a = $"{i}. {name}({id})";
                     s += a + "\r\n";
                 }
