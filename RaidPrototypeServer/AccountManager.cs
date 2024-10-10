@@ -88,7 +88,10 @@ namespace RaidPrototypeServer
                             (bool b, account) = Login(c.arguments[0], c.arguments[1]);
                             if (b)
                             {
-                                success = LoginHandler(user,stream,account,c);
+                                if (!IsLoggedIn(account))
+                                    success = LoginHandler(user, stream, account, c);
+                                else
+                                    LoginFail(stream, "Already logged in");
                                 continue;
                             }
                             else
@@ -124,6 +127,7 @@ namespace RaidPrototypeServer
             user.logger.Log(user.userType.ToString());
             c = new Command() { command = "LoginSuccess", arguments = new string[] { account.name, account.typeToken } };
             user.name = account.name;
+            user.loggedIn = true;
             PacketHandler.WriteStream(stream, c);
             WriteAccountDatabase();
             switch (user.userType)
@@ -240,6 +244,14 @@ namespace RaidPrototypeServer
             foreach (Account a in accounts)
             {
                 if (a.name == m) return true;
+            }
+            return false;
+        }
+        private static bool IsLoggedIn(Account account)
+        {
+            foreach(ServerPlayer p in Server.players)
+            {
+                if (p.name == account.name) return true;
             }
             return false;
         }

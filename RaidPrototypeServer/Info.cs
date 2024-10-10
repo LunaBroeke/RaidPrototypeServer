@@ -11,9 +11,15 @@ namespace RaidPrototypeServer
         public string type { get; private set; } = "PlayerInfo";
         public int puppetID { get; set; }
         public string name { get; set; }
+        public int health { get; set; }
         public Position position { get; set; } = new();
         public Rotation rotation { get; set; } = new();
         public Stats playerStats { get; set; } = new();
+    }
+    public class PlayerInfoList
+    {
+        public string type { get; set; } = "PlayerInfoList";
+        public List<PlayerInfo> players { get; set; } = new List<PlayerInfo>();
     }
     public class Position
     {
@@ -45,6 +51,7 @@ namespace RaidPrototypeServer
         public Logger logger { get; set; }
         public Thread thread { get; set; }
         public UserClient userType { get; set; }
+        public bool loggedIn { get; set; }
     }
     public enum UserClient
     {
@@ -58,6 +65,7 @@ namespace RaidPrototypeServer
         public string type { get; set; } = "EnemyInfo";
         public int puppetID { get; set; }
         public string name { get; set; }
+        public int health { get; set; }
         public Position position { get; set; } = new();
         public Rotation rotation { get; set; } = new();
         public Stats enemyStats { get; set; } = new();

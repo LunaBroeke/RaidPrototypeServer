@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,20 +13,21 @@ namespace RaidPrototypeServer
 {
     public class Server
     {
+        public const string version = "2410d10b";
         public static TcpListener server;
         public static List<ServerPlayer> players = new List<ServerPlayer>();
         public static ServerInfo serverInfo = new ServerInfo();
         public static Logger logger = new Logger() { name = "Server" };
         public static IPEndPoint localEP = null;
-        public bool serverActive;
         public static Settings settings = Settings.LoadSettings();
+        public bool serverActive;
 
         public void StartServer()
         {
             if (serverActive == false)
             {
                 localEP = new IPEndPoint(IPAddress.Parse(settings.address), settings.port);
-                
+
                 try
                 {
                     server = new TcpListener(localEP);
@@ -33,7 +35,14 @@ namespace RaidPrototypeServer
                     serverActive = true;
                     logger.Log($"Listening on {localEP}");
                     logger.Log("Server Started. waiting for connections");
+#if DEBUG
+                    logger.Log($"Debug Date: {DateTime.Now}");
+#else
+                    logger.Log($"Current version: {version}");
+#endif
                     AccountManager.GetAccountDatabase();
+                    Thread sendloop = new Thread( () => { SendPlayerInfoLoop(); }) { IsBackground = true };
+                    sendloop.Start();
                     while (serverActive)
                     {
                         TcpClient client = server.AcceptTcpClient();
@@ -42,7 +51,6 @@ namespace RaidPrototypeServer
                         player.logger.Log($"Client connected!");
                         Thread clientThread = new Thread(() => HandleClient(player)) { IsBackground = true };
                         clientThread.Start();
-                        Thread.Sleep(100);
                     }
                 }
                 catch (Exception e)
@@ -99,6 +107,7 @@ namespace RaidPrototypeServer
                 player.logger.name = $"{player.player.name}({player.player.puppetID})";
                 player.logger.Log($"Obtained name {player.player.name} from {endPoint} and assigned ID {player.player.puppetID}");
                 PacketHandler.WriteStream(stream, player.player);
+                PlayerListMonitor.WritePlayerList();
             }
             catch (Exception ex)
             {
@@ -113,21 +122,19 @@ namespace RaidPrototypeServer
             {
                 while (player.tcpClient.Connected)
                 {
-                    PlayerListMonitor.WritePlayerList();
                     s = null;
-                    s = PacketHandler.ReadStream(stream, 1024);
-                    player.logger.Log(s);
-                    string check = ValidatePacket(s);
-                    switch (check)
+                    try
                     {
-                        case "PlayerInfo":
-                            break;
-                        case "Command":
-                            HandleClientCommand(player, s);
-                            break;
-                        default:
-                            continue;
+                        s = PacketHandler.ReadStream(stream, 1024);
                     }
+                    catch (Exception ex) { player.logger.LogWarning(ex.ToString()); continue; }
+                    string[] strings = s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string str in strings)
+                    {
+                        ProcessMessage(player, str);
+                        stream.Flush();
+                    }
+                    //SendPlayerInfo();
                 }
                 throw new Exception("Player disconnected");
             }
@@ -149,6 +156,21 @@ namespace RaidPrototypeServer
         {
 
         }
+        private static void ProcessMessage(ServerPlayer player, string s)
+        {
+            string check = ValidatePacket(s);
+            switch (check)
+            {
+                case "PlayerInfo":
+                    HandlePlayerInfo(player, s);
+                    break;
+                case "Command":
+                    HandleClientCommand(player, s);
+                    break;
+                default:
+                    break;
+            }
+        }
         #region Packet Validating
         public static bool ValidatePacket(PlayerInfo pi)
         {
@@ -164,16 +186,87 @@ namespace RaidPrototypeServer
             if (c.command == null) return false;
             return true;
         }
+        public static bool ValidatePacket(PlayerInfoList pil)
+        {
+            if (pil.type != "PlayerInfoList") return false;
+            if (pil.players == null) return false;
+            return true;
+        }
 
         public static string ValidatePacket(string s)
         {
             if (ValidatePacket(JsonConvert.DeserializeObject<PlayerInfo>(s))) return "PlayerInfo";
+            if (ValidatePacket(JsonConvert.DeserializeObject<PlayerInfoList>(s))) return "PlayerInfoList";
             if (ValidatePacket(JsonConvert.DeserializeObject<Command>(s))) return "Command";
             return "invalid";
         }
         #endregion
+        private static void SendPlayerInfo()
+        {
+            PlayerInfoList playerInfoList = new PlayerInfoList();
+            lock (players)
+            {
+                foreach (ServerPlayer sp in players)
+                {
+                    if (sp.player != null)
+                        playerInfoList.players.Add(sp.player);
+                }
+                string s = JsonConvert.SerializeObject(playerInfoList);
+                foreach (ServerPlayer sp in players)
+                {
+                    if (sp.loggedIn)
+                    {
+                        TcpClient client = sp.tcpClient;
+                        NetworkStream stream = client.GetStream();
+                        PacketHandler.WriteStream(stream, s);
+                    }
+                }
+            }
+        }
+        private static void SendPlayerInfoLoop()
+        {
+            while (true)
+            {
+
+                PlayerInfoList playerInfoList = new PlayerInfoList();
+                lock (players)
+                {
+                    foreach (ServerPlayer sp in players)
+                    {
+                        if (sp.player != null)
+                            playerInfoList.players.Add(sp.player);
+                    }
+                    string s = JsonConvert.SerializeObject(playerInfoList);
+                    foreach (ServerPlayer sp in players)
+                    {
+                        if (sp.loggedIn)
+                        {
+                            TcpClient client = sp.tcpClient;
+                            NetworkStream stream = client.GetStream();
+                            PacketHandler.WriteStream(stream, s);
+                        }
+                    }
+                }
+                Thread.Sleep(10);
+            }
+        }
         #region Packet Handling
-        public static void HandleClientCommand(ServerPlayer player , string s)
+        public static void HandlePlayerInfo(ServerPlayer player, string s)
+        {
+            PlayerInfo playerInfo = JsonConvert.DeserializeObject<PlayerInfo>(s);
+            lock (players)
+            {
+                IPEndPoint ip = player.tcpClient.Client.RemoteEndPoint as IPEndPoint;
+                PlayerInfo existingPlayer = FindPlayerByID(player.player.puppetID).player;
+                if (existingPlayer != null)
+                {
+                    existingPlayer.position = playerInfo.position;
+                    existingPlayer.rotation = playerInfo.rotation;
+                    existingPlayer.health = playerInfo.health;
+                }
+            }
+        }
+        public static void HandleClientCommand(ServerPlayer player, string s)
         {
             Command command = JsonConvert.DeserializeObject<Command>(s);
             if (command.command == "Disconnect") Disconnect(player);
@@ -196,7 +289,10 @@ namespace RaidPrototypeServer
         }
         public static ServerPlayer FindPlayerByID(int playerID)
         {
-            foreach (ServerPlayer player in players) { if (player.player.puppetID == playerID) { return player; } }
+            foreach (ServerPlayer player in players)
+            {
+                if (player.player.puppetID == playerID) { return player; }
+            }
             return null;
         }
 
@@ -205,7 +301,7 @@ namespace RaidPrototypeServer
             players.Remove(player);
             player.logger.LogError($"{player.tcpClient.Client.RemoteEndPoint} Disconnected");
             player.tcpClient.Close();
-            PlayerListMonitor.WritePlayerList(); 
+            PlayerListMonitor.WritePlayerList();
             player.thread.Join();
         }
         public void StopServer()
