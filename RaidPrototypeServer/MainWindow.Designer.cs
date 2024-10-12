@@ -45,6 +45,7 @@
             // 
             ConsoleBox.AcceptsReturn = true;
             ConsoleBox.AcceptsTab = true;
+            ConsoleBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             ConsoleBox.BackColor = SystemColors.Window;
             ConsoleBox.Location = new Point(6, 12);
             ConsoleBox.Multiline = true;
@@ -56,6 +57,7 @@
             // 
             // ConsoleInput
             // 
+            ConsoleInput.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             ConsoleInput.Location = new Point(6, 544);
             ConsoleInput.Name = "ConsoleInput";
             ConsoleInput.Size = new Size(685, 27);
@@ -64,6 +66,7 @@
             // 
             // resources
             // 
+            resources.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             resources.Controls.Add(ResourcesBox);
             resources.Location = new Point(697, 6);
             resources.Name = "resources";
@@ -77,6 +80,7 @@
             // 
             ResourcesBox.AcceptsReturn = true;
             ResourcesBox.AcceptsTab = true;
+            ResourcesBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             ResourcesBox.BackColor = SystemColors.Control;
             ResourcesBox.Location = new Point(6, 26);
             ResourcesBox.Multiline = true;
@@ -87,6 +91,7 @@
             // 
             // playerList
             // 
+            playerList.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             playerList.Controls.Add(PlayerListBox);
             playerList.Location = new Point(697, 198);
             playerList.Name = "playerList";
@@ -99,6 +104,7 @@
             // 
             PlayerListBox.AcceptsReturn = true;
             PlayerListBox.AcceptsTab = true;
+            PlayerListBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             PlayerListBox.Location = new Point(6, 26);
             PlayerListBox.Multiline = true;
             PlayerListBox.Name = "PlayerListBox";
@@ -110,6 +116,7 @@
             // 
             // selectInfo
             // 
+            selectInfo.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             selectInfo.Controls.Add(InfoBox);
             selectInfo.Location = new Point(697, 399);
             selectInfo.Name = "selectInfo";
@@ -122,6 +129,7 @@
             // 
             InfoBox.AcceptsReturn = true;
             InfoBox.AcceptsTab = true;
+            InfoBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             InfoBox.Location = new Point(6, 26);
             InfoBox.Multiline = true;
             InfoBox.Name = "InfoBox";

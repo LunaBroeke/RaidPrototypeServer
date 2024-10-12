@@ -57,5 +57,14 @@ namespace RaidPrototypeServer
             if (log)logger.Log($"Cent: {s}");
 #endif
         }
+        public static void WriteStream(NetworkStream stream, ServerInfo si)
+        {
+            string s = JsonConvert.SerializeObject(si);
+            byte[] data = Encoding.UTF8.GetBytes(s + Environment.NewLine);
+            stream.Write(data, 0, data.Length);
+#if DEBUG
+            if (log) logger.Log($"Cent: {s}");
+#endif
+        }
     }
 }

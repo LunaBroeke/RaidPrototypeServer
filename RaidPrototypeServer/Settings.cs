@@ -26,6 +26,7 @@ namespace RaidPrototypeServer
     {
         public string address = "0.0.0.0";
         public int port = 2051;
+        public int maxPlayers = 4;
         public List<Authorization> auth = new List<Authorization>();
         private static string path = "settings.json";
         public static Settings LoadSettings()
@@ -82,6 +83,7 @@ namespace RaidPrototypeServer
             List<Authorization> auths = Server.settings.auth;
             if (PlayerLogin(account, c)) return UserClient.Player;
             if (AdminPanelLogin(account, c)) return UserClient.AdminPanel;
+            if (SpectatorLogin(account,c)) return UserClient.Spectator;
             return UserClient.None;
         }
         private static bool PlayerLogin(Account account, Command c)
@@ -111,6 +113,26 @@ namespace RaidPrototypeServer
             foreach(Authorization auth in Server.settings.auth)
             {
                 if (auth.rights == SpecialRights.AdminPanel)
+                {
+                    auths.Add(auth);
+                }
+            }
+            foreach(Authorization auth in auths)
+            {
+                if (auth.token == c.arguments[2])
+                {
+                    string a = $"Login/{account.typeToken}";
+                    if (auth.permissions.Contains(a)) return true;
+                }
+            }
+            return false;
+        }
+        private static bool SpectatorLogin(Account account, Command c)
+        {
+            List<Authorization> auths = new List<Authorization>();
+            foreach(Authorization auth in Server.settings.auth)
+            {
+                if (auth.rights == SpecialRights.Spectator)
                 {
                     auths.Add(auth);
                 }

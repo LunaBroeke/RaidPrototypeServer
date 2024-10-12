@@ -24,7 +24,7 @@ namespace RaidPrototypeServer
                     CommandDebug(data);
                     break;
                 case "ping":
-                    SendPing();
+                    Server.SendPing();
                     break;
                 case "ban":
                     CommandBan(data);
@@ -54,7 +54,7 @@ namespace RaidPrototypeServer
                 switch (data[1])
                 {
                     case "ping":
-                        SendPing();
+                        Server.SendPing();
                         break;
                     default:
                         logger.LogWarning("Incorrect arguments");
@@ -71,7 +71,7 @@ namespace RaidPrototypeServer
             string time = string.Join(" ", data.Skip(2));
             try
             {
-                DateTime t = DateTime.Parse(time);
+                DateTime t = DateTime.Parse(time).ToUniversalTime();
                 Account acc = AccountManager.FindAccountByName(name);
                 acc.banExpire = t;
                 AccountManager.WriteAccountDatabase();
@@ -80,16 +80,6 @@ namespace RaidPrototypeServer
             catch (Exception e) { logger.LogWarning(e.ToString()); return; }
         }
 
-        private static void SendPing()
-        {
-            Command c = new Command();
-            c.command = "PING";
-            c.arguments = new[] { DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss.fff"), "await" };
-            foreach (ServerPlayer player in Server.players)
-            {
-                NetworkStream stream = player.tcpClient.GetStream();
-                PacketHandler.WriteStream(stream, c);
-            }
-        }
+        
     }
 }

@@ -12,8 +12,9 @@ using System.Web;
 
 namespace RaidPrototypeServer
 {
-    public class Root
+    public class AccountRoot
     {
+        public string type = "AccountRoot";
         public List<Account> accounts;
     }
     public class Account
@@ -23,6 +24,8 @@ namespace RaidPrototypeServer
         public string salt;
         public string typeToken = "User";
         public bool accepted;
+        public DateTime accountCreation = DateTime.UtcNow;
+        public DateTime lastLogin = DateTime.UtcNow;
         public DateTime banExpire = DateTime.UnixEpoch;
     }
     public class LoginResult
@@ -39,8 +42,9 @@ namespace RaidPrototypeServer
             if (File.Exists(path))
             {
                 string s = File.ReadAllText(path);
-                accounts = JsonConvert.DeserializeObject<Root>(s).accounts;
+                accounts = JsonConvert.DeserializeObject<AccountRoot>(s).accounts;
                 logger.Log($"Loaded {path}");
+                WriteAccountDatabase();
             }
             else
             {
@@ -58,28 +62,34 @@ namespace RaidPrototypeServer
 
         public static void WriteAccountDatabase()
         {
-            Root root = new Root() { accounts = accounts };
+            AccountRoot root = new AccountRoot() { accounts = accounts };
             string json = JsonConvert.SerializeObject(root,Formatting.Indented);
             File.WriteAllText(path, json);
             logger.Log($"Saved {path}");
         }
         public static void AwaitAccount(ServerPlayer user)
         {
-            user.logger.Log("1");
-            Command c = new Command() { command = "PleaseLogin" };
+            Command c = new Command() { command = "PleaseLogin", arguments = new string[] { "Please Log In" } };
             string s = JsonConvert.SerializeObject(c);
             NetworkStream stream = user.tcpClient.GetStream();
             PacketHandler.WriteStream(stream, c);
             bool success = false;
             Account account = null;
+            int attempts = 0;
+            int attemptsMax = 5;
             do
             {
+                if (attempts >= attemptsMax)
+                {
+                    user.logger.Log("Too many login attempts, forcefully disconnecting.");
+                    Server.Disconnect(user);
+                    return;
+                }
                 try
                 {
                     c = null;
                     s = null;
                     s = PacketHandler.ReadStream(stream, 1024);
-                    user.logger.LogWarning(s);
                     c = JsonConvert.DeserializeObject<Command>(s);
                     try { if (c.arguments.Length < 3) { LoginFail(stream, $"Invalid Arguments, Disconnecting"); Server.Disconnect(user); return; } } catch { Server.Disconnect(user); }
                     switch (c.command)
@@ -98,6 +108,7 @@ namespace RaidPrototypeServer
                             {
                                 user.logger.LogWarning("Login failed");
                                 LoginFail(stream, "Incorrect username or password");
+                                attempts++;
                                 continue;
                             }
                         case "register":
@@ -111,6 +122,7 @@ namespace RaidPrototypeServer
                             else
                             {
                                 LoginFail(stream, account.typeToken);
+                                attempts++;
                             }
                             break;
                         case "Disconnect":
@@ -121,13 +133,13 @@ namespace RaidPrototypeServer
                     }
 
                 }
-                catch (Exception e) { user.logger.LogError(e.ToString()); success = false; continue; }
+                catch (Exception e) { user.logger.LogError(e.ToString()); success = false; attempts++; continue; }
             }
             while (!success);
-            user.logger.Log(user.userType.ToString());
             c = new Command() { command = "LoginSuccess", arguments = new string[] { account.name, account.typeToken } };
+            user.logger.Log($"{account.name} Logged in successfully!");
             user.name = account.name;
-            user.loggedIn = true;
+            account.lastLogin = DateTime.UtcNow;
             PacketHandler.WriteStream(stream, c);
             WriteAccountDatabase();
             switch (user.userType)
@@ -188,10 +200,8 @@ namespace RaidPrototypeServer
             {
                 byte[] saltBytes = Convert.FromBase64String(account.salt);
                 string passHash = GetPassword(password, saltBytes);
-                logger.LogWarning(passHash);
                 if (account.passwordHash == passHash)
                 {
-                    logger.Log($"User {name} Logged in successfully");
                     return (true, account);
                 }
                 else
@@ -206,13 +216,11 @@ namespace RaidPrototypeServer
         }
         private static bool LoginHandler(ServerPlayer user, NetworkStream stream, Account account, Command c)
         {
-            user.logger.Log($"{account.name} Logged in successfully!");
             if (account.typeToken == "null")
             {
                 LoginFail(stream, "Incorrect username or password");
                 return false;
             }
-            logger.Log(isBanned(account).ToString());
             if (isBanned(account))
             {
                 LoginFail(stream, $"Logged in successfully, but you are banned until {account.banExpire}");
@@ -249,17 +257,21 @@ namespace RaidPrototypeServer
         }
         private static bool IsLoggedIn(Account account)
         {
-            foreach(ServerPlayer p in Server.players)
+            foreach (ServerPlayer p in Server.players)
             {
-                if (p.name == account.name) return true;
+                string s = p.name.Replace("[AdminPanel]", "").Replace("[Spectator]", "").Trim();
+
+                if (s == account.name) return true;
             }
             return false;
         }
+
 
         private static void LoginFail(NetworkStream stream, string msg)
         {
             Command c = new Command() { command = "LoginFailed", arguments = new string[] { msg } };
             PacketHandler.WriteStream(stream, c);
+            Thread.Sleep(500);
             c = new Command() { command = "PleaseLogin" };
             PacketHandler.WriteStream(stream, c);
         }
@@ -267,10 +279,9 @@ namespace RaidPrototypeServer
         {
             if (account.banExpire != null)
             {
-                DateTime now = DateTime.Now;
+                DateTime now = DateTime.UtcNow;
                 DateTime ban = account.banExpire;
                 TimeSpan span = ban - now;
-                logger.LogWarning(span.ToString());
                 if (span > TimeSpan.Zero)
                 {
                     return true;
@@ -281,6 +292,11 @@ namespace RaidPrototypeServer
                 return false;
             }
             return false;
+        }
+        public static AccountRoot GetAccountRoot()
+        {
+            AccountRoot root = new AccountRoot() { accounts = accounts };
+            return root;
         }
         private static void TokenCheck()
         {

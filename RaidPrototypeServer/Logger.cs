@@ -51,7 +51,7 @@ namespace RaidPrototypeServer
                 main.ConsoleBox.AppendText(logEntry);
 
                 // Write to the log file
-                File.AppendAllText("log.txt", logEntry);
+                File.AppendAllText($"log.txt", logEntry);
             }
         }
     }

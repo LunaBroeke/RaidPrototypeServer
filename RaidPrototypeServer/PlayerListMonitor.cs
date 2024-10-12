@@ -30,6 +30,7 @@ namespace RaidPrototypeServer
                     i++;
                     string name = player.name;
                     int id = -1;
+                    double ping = player.ping;
                     IPEndPoint endpoint = (IPEndPoint)player.tcpClient.Client.RemoteEndPoint;
                     if (player.player != null)
                     {
@@ -38,7 +39,7 @@ namespace RaidPrototypeServer
                         if (player.player.puppetID == -1) id = endpoint.Port;
                         else id = player.player.puppetID;
                     }
-                    a = $"{i}. {name}({id})";
+                    a = $"{i}. {name}({id}) - {ping} ms";
                     s += a + "\r\n";
                 }
 
