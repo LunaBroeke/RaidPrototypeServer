@@ -1,0 +1,14 @@
+{
+  "servers": [
+    {
+      "name": "localhost",
+      "address": "127.0.0.1",
+      "port": 2051
+    },
+    {
+      "name": "Official Server",
+      "address": "server.lunabroeke.dev",
+      "port": 2051
+    }
+  ]
+}
