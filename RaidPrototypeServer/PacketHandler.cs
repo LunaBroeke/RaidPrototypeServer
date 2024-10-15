@@ -11,7 +11,7 @@ namespace RaidPrototypeServer
     public static class PacketHandler
     {
 #if DEBUG
-        private const bool log = false;
+        private const bool log = true;
         private static Logger logger = new Logger() { name = "packet" };
 #endif
         public static string ReadStream(NetworkStream stream,int bytes)

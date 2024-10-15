@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using RaidPrototypeServer.GameScripts;
 
 namespace RaidPrototypeServer
 {
@@ -33,6 +34,19 @@ namespace RaidPrototypeServer
                     Thread serverThread = new Thread(MainWindow.server.StartServer) { IsBackground = true };
                     serverThread.Start();
                     break;
+                case "startgame":
+                    Thread gameThread = new Thread(() => GameManager.StartGame(GameManager.GetFloorByNum(10))) { IsBackground = true };
+                    gameThread.Start();
+                    break;
+                case "debugmap":
+                    Thread debugmap = new Thread(() =>
+                    {
+                        Application.Run(new MapScreen());
+                    });
+                    debugmap.Start();
+                    break;
+                case "debuglog":
+                    break;
                 case "stop":
                     MainWindow.server.StopServer();
                     break;
@@ -55,6 +69,9 @@ namespace RaidPrototypeServer
                 {
                     case "ping":
                         Server.SendPing();
+                        break;
+                    case "move":
+                        DebugRandomPos();
                         break;
                     default:
                         logger.LogWarning("Incorrect arguments");
@@ -80,6 +97,20 @@ namespace RaidPrototypeServer
             catch (Exception e) { logger.LogWarning(e.ToString()); return; }
         }
 
-        
+        private static void DebugRandomPos()
+        {
+            Random r = new Random();
+            foreach (ServerPlayer player in Server.players)
+            {
+                if (player.player != null)
+                {
+                    int x = r.Next(-20, 20);
+                    int y = r.Next(-20, 20);
+                    int z = r.Next(-20, 20);
+                    Command c = new Command() { command = "TeleportPlayer", arguments = new string[] { $"{x}", $"{y}", $"{z}" } };
+                    PacketHandler.WriteStream(player.tcpClient.GetStream(), c);
+                }
+            }
+        }
     }
 }

@@ -15,13 +15,14 @@ namespace RaidPrototypeServer
     public class Server
     {
         public static DateTime launchTime = DateTime.Now;
-        public const string version = "2410d12a";
+        public const string version = "2410d14c";
         public static TcpListener server;
         public static List<ServerPlayer> players = new List<ServerPlayer>();
         public static Logger logger = new Logger() { name = "Server" };
         public static IPEndPoint localEP = null;
         public static Settings settings = Settings.LoadSettings();
         public bool serverActive;
+        public static int loginScene = 1;
 
         public void StartServer()
         {
@@ -46,6 +47,7 @@ namespace RaidPrototypeServer
                     Thread sendPingLoop = new Thread( () => { SendPingLoop(); }) { IsBackground= true };
                     sendloop.Start();
                     sendPingLoop.Start();
+                    PerformanceLogger.StartLoggingExcel();
                     while (serverActive)
                     {
                         TcpClient client = server.AcceptTcpClient();
@@ -79,6 +81,7 @@ namespace RaidPrototypeServer
                 player.name = endPoint.ToString();
                 players.Add(player);
                 PlayerListMonitor.WritePlayerList();
+                Thread.Sleep(500);
                 AccountManager.AwaitAccount(player);
             }
             catch (Exception ex)
@@ -100,8 +103,22 @@ namespace RaidPrototypeServer
             PlayerInfo pi = null;
             try
             {
+                //Scene Verifier
+                bool loadedScene = false;
+                while (!loadedScene)
+                {
+                    Command sendScene = new Command() { command = "SendToScene", arguments = new string[] { loginScene.ToString() } };
+                    PacketHandler.WriteStream(stream, sendScene);
+
+                    string ss = PacketHandler.ReadStream(stream, 512);
+                    sendScene = JsonConvert.DeserializeObject<Command>(ss);
+                    if (sendScene.command == "LoadedScene")
+                    {
+                        loadedScene = true;
+                    }
+                }
+                //PlayerInfo Verifier
                 s = PacketHandler.ReadStream(stream, 1024);
-                player.logger.Log($"{s}");
                 pi = JsonConvert.DeserializeObject<PlayerInfo>(s);
                 if (!ValidatePacket(pi)) throw new Exception("PlayerInfo is missing");
 
