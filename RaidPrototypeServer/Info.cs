@@ -44,6 +44,7 @@ namespace RaidPrototypeServer
     }
     public class Stats
     {
+        public int health { get; set; }
         public int maxHealth { get; set; }
         public int attack { get; set; }
         public int defense { get; set; }

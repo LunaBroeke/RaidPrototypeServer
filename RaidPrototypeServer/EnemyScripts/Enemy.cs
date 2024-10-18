@@ -11,6 +11,7 @@ namespace RaidPrototypeServer.EnemyScripts
     {
         public string attackName { get; set; }
         public float attackTime { get; set; }
+        public string displayName { get; set; }
     }
     public class EnemyTarget
     {
@@ -53,12 +54,14 @@ namespace RaidPrototypeServer.EnemyScripts
         {
             try
             {
-                Command c = new Command() { command = "EnemyAttack", arguments = new string[] { $"{enemyInfo.puppetID}", $"{attack.attackName}", $"{CheckTarget().player.puppetID}" } };
+                Command c = new Command() { command = "EnemyAttack", arguments = new string[] { $"{enemyInfo.puppetID}", $"{attack.attackName}", $"{CheckTarget().player.puppetID}", attack.displayName } };
                 Server.logger.Log(attack.attackName);
                 foreach (ServerPlayer player in Server.players)
                 {
+                    player.logger.Log("cent");
                     NetworkStream stream = player.tcpClient.GetStream();
                     PacketHandler.WriteStream(stream, c);
+
                 }
                 await Task.Delay(TimeSpan.FromSeconds(attack.attackTime));
             }

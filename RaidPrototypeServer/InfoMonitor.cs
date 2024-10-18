@@ -25,12 +25,16 @@ namespace RaidPrototypeServer
                     {
                         IPEndPoint endPoint = (IPEndPoint)player.tcpClient.Client.RemoteEndPoint;
                         string s = string.Empty;
-                        s += $"Player Name: {player.player.name}\r\n";
-                        s += $"PuppetID: {player.player.puppetID}\r\n";
+                        s += $"Player Name: {player.name}\r\n";
                         s += $"Remote Endpoint: {endPoint}\r\n";
-                        s += $"Position: \r\n\tx: {player.player.position.x} \r\n\ty: {player.player.position.y} \r\n\tz: {player.player.position.z}\r\n";
-                        s += $"Rotation: \r\n\tx: {player.player.rotation.x} \r\n\ty: {player.player.rotation.y} \r\n\tz: {player.player.rotation.y} \r\n\tw: {player.player.rotation.w}\r\n";
-                        s += $"Stats:";
+                        s += $"User type: {player.userType}";
+                        if (player.player != null)
+                        {
+                            s += $"PuppetID: {player.player.puppetID}\r\n";
+                            s += $"Position: \r\n\tx: {player.player.position.x} \r\n\ty: {player.player.position.y} \r\n\tz: {player.player.position.z}\r\n";
+                            s += $"Rotation: \r\n\tx: {player.player.rotation.x} \r\n\ty: {player.player.rotation.y} \r\n\tz: {player.player.rotation.y} \r\n\tw: {player.player.rotation.w}\r\n";
+                            s += $"Stats: \r\n\tHealth: {player.player.playerStats.health} \r\n\tAttack {player.player.playerStats.attack}";
+                        }
                         ApplyInfo(s);
                         Thread.Sleep(500);
                     }

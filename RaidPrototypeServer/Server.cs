@@ -15,7 +15,7 @@ namespace RaidPrototypeServer
     public class Server
     {
         public static DateTime launchTime = DateTime.Now;
-        public const string version = "2410d14c";
+        public const string version = "2410d15b";
         public static TcpListener server;
         public static List<ServerPlayer> players = new List<ServerPlayer>();
         public static Logger logger = new Logger() { name = "Server" };
@@ -403,7 +403,7 @@ namespace RaidPrototypeServer
             DateTime t1 = DateTime.Parse(c.arguments[0]);
             DateTime t2 = DateTime.UtcNow;
             TimeSpan ping = t2 - t1;
-            player.logger.Log($"Ping: {ping.TotalMilliseconds} ms");
+            //player.logger.Log($"Ping: {ping.TotalMilliseconds} ms");
             player.ping = ping.TotalMilliseconds;
             if (player.player != null) player.player.ping = player.ping;
             PlayerListMonitor.WritePlayerList();

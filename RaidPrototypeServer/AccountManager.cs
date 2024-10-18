@@ -133,7 +133,7 @@ namespace RaidPrototypeServer
                     }
 
                 }
-                catch (Exception e) { user.logger.LogError(e.ToString()); success = false; attempts++; continue; }
+                catch (Exception e) { user.logger.LogError(e.Message); success = false; attempts++; continue; }
             }
             while (!success);
             c = new Command() { command = "LoginSuccess", arguments = new string[] { account.name, account.typeToken } };
