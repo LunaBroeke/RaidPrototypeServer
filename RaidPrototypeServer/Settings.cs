@@ -28,7 +28,7 @@ namespace RaidPrototypeServer
         public int port = 2051;
         public int maxPlayers = 4;
         public List<Authorization> auth = new List<Authorization>();
-        private static string path = "settings.json";
+        private const string path = "settings.json";
         public static Settings LoadSettings()
         {
             if (File.Exists(path))

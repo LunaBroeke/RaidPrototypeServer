@@ -117,7 +117,7 @@ namespace RaidPrototypeServer
                             {
                                 accounts.Add(account);
                                 user.logger.Log($"Account {account.name} Registered!");
-                                success = LoginHandler(user,stream,account, c);
+                                success = LoginHandler(user, stream, account, c);
                             }
                             else
                             {
@@ -133,6 +133,7 @@ namespace RaidPrototypeServer
                     }
 
                 }
+                catch (IOException e) { Server.Disconnect(user); }
                 catch (Exception e) { user.logger.LogError(e.Message); success = false; attempts++; continue; }
             }
             while (!success);

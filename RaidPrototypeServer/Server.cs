@@ -15,7 +15,7 @@ namespace RaidPrototypeServer
     public class Server
     {
         public static DateTime launchTime = DateTime.Now;
-        public const string version = "2410d15b";
+        public const string version = "2410d25a";
         public static TcpListener server;
         public static List<ServerPlayer> players = new List<ServerPlayer>();
         public static Logger logger = new Logger() { name = "Server" };
@@ -45,7 +45,7 @@ namespace RaidPrototypeServer
                     AccountManager.GetAccountDatabase();
                     Thread sendloop = new Thread( () => { SendPlayerInfoLoop(); }) { IsBackground = true };
                     Thread sendPingLoop = new Thread( () => { SendPingLoop(); }) { IsBackground= true };
-                    sendloop.Start();
+                    //sendloop.Start();
                     sendPingLoop.Start();
                     PerformanceLogger.StartLoggingExcel();
                     while (serverActive)
@@ -153,7 +153,7 @@ namespace RaidPrototypeServer
                     foreach (string str in strings)
                     {
                         ProcessMessage(player, str);
-                        stream.Flush();
+                        //stream.Flush();
                     }
                     //SendPlayerInfo();
                 }
@@ -231,6 +231,7 @@ namespace RaidPrototypeServer
             }
             catch (Exception e) { admin.logger.Log(e.Message); Disconnect(admin); }
         }
+
         private static void ProcessMessage(ServerPlayer player, string s)
         {
             string check = ValidatePacket(s);
@@ -275,8 +276,22 @@ namespace RaidPrototypeServer
             if (ValidatePacket(JsonConvert.DeserializeObject<Command>(s))) return "Command";
             return "invalid";
         }
-        #endregion
-        private static void SendPlayerInfo()
+		#endregion
+		private static void RelayPlayerPacket(PlayerInfo player)
+		{
+            List<ServerPlayer> p = players;
+            lock (p)
+            {
+                foreach (ServerPlayer sp in p)
+                {
+                    if (sp.loggedIn)
+                    {
+                        PacketHandler.WriteStream(sp.tcpClient.GetStream(), player);
+                    }
+                }
+            }
+		}
+		private static void SendPlayerInfo()
         {
             PlayerInfoList playerInfoList = new PlayerInfoList();
             lock (players)
@@ -334,15 +349,17 @@ namespace RaidPrototypeServer
             PlayerInfo playerInfo = JsonConvert.DeserializeObject<PlayerInfo>(s);
             try
             {
-                lock (players)
+                List<ServerPlayer> p = players;
+                lock (p)
                 {
                     IPEndPoint ip = player.tcpClient.Client.RemoteEndPoint as IPEndPoint;
                     PlayerInfo existingPlayer = FindPlayerByID(player.player.puppetID).player;
-                    if (existingPlayer != null)
+                    if (existingPlayer != null && existingPlayer.puppetID == playerInfo.puppetID)
                     {
                         existingPlayer.position = playerInfo.position;
                         existingPlayer.rotation = playerInfo.rotation;
                         existingPlayer.health = playerInfo.health;
+                    RelayPlayerPacket(playerInfo);
                     }
                 }
             }
